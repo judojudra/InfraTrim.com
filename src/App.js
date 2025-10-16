@@ -30,33 +30,36 @@ S3,us-east-1,780.00,2025-08`;
     a.click();
   };
 
-  const handleUpload = (e) => {
+  const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
       setAnalyzing(true);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const text = ev.target.result;
-        const lines = text.split('\n');
-        const headers = lines[0].split(',');
-        const data = [];
-        for (let i = 1; i < lines.length; i++) {
-          if (lines[i].trim()) {
-            const values = lines[i].split(',');
-            const row = {};
-            headers.forEach((h, idx) => {
-              row[h.trim()] = values[idx]?.trim();
-            });
-            data.push(row);
-          }
+      
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('http://localhost:5000/api/analyze', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error('Analysis failed');
         }
-        setTimeout(() => {
-          setCsvData(data);
-          setAnalyzing(false);
-          setScreen('dashboard');
-        }, 2000);
-      };
-      reader.readAsText(file);
+        
+        const result = await response.json();
+        console.log('Backend response:', result);
+        
+        setCsvData(result);
+        setAnalyzing(false);
+        setScreen('dashboard');
+        
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to analyze file. Make sure backend is running on port 5000!');
+        setAnalyzing(false);
+      }
     }
   };
 
@@ -74,27 +77,36 @@ S3,us-east-1,780.00,2025-08`;
   };
 
   const processData = () => {
-    if (!csvData) return null;
-    const serviceData = {};
-    const monthlyData = {};
-    csvData.forEach(row => {
-      const service = row.Service || row.service;
-      const cost = parseFloat(row.Cost || row.cost || 0);
-      const date = row.Date || row.date || '2025-09';
-      if (!serviceData[service]) serviceData[service] = 0;
-      serviceData[service] += cost;
-      if (!monthlyData[date]) monthlyData[date] = 0;
-      monthlyData[date] += cost;
-    });
+    if (!csvData || !csvData.services) return null;
+    const serviceData = csvData.services;
+    const monthlyData = { '2025-09': csvData.total_cost };
     return { serviceData, monthlyData };
   };
 
-  const recs = [
-    { id: 1, type: 'EC2 Right-Sizing', icon: Server, sev: 'high', conf: 89, save: 5400, mo: 450, desc: '3 t3.2xlarge with <30% CPU', act: 'Downsize to t3.large', cur: 1350, proj: 540 },
-    { id: 2, type: 'S3 Optimization', icon: Database, sev: 'med', conf: 92, save: 2800, mo: 233, desc: '8TB Standard storage', act: 'Use Intelligent-Tiering', cur: 400, proj: 120 },
-    { id: 3, type: 'Unused EBS', icon: HardDrive, sev: 'high', conf: 95, save: 1200, mo: 100, desc: '15 unattached volumes', act: 'Delete after backup', cur: 1200, proj: 0 },
-    { id: 4, type: 'Reserved Instances', icon: DollarSign, sev: 'med', conf: 87, save: 3600, mo: 300, desc: 'RDS on on-demand', act: 'Buy 1-year RI', cur: 1040, proj: 640 }
+  const iconMap = {
+    'Server': Server,
+    'Database': Database,
+    'HardDrive': HardDrive,
+    'DollarSign': DollarSign,
+    'Zap': Zap
+  };
+
+  const backendRecs = csvData?.recommendations?.map(rec => ({
+    ...rec,
+    icon: iconMap[rec.icon] || Server,
+    mo: rec.save / 12,
+    act: rec.action || rec.act
+  })) || [];
+
+  const hardcodedRecs = [
+    { id: 1, type: 'EC2 Right-Sizing', icon: Server, sev: 'high', conf: 89, save: 450, mo: 450, desc: '3 t3.2xlarge with <30% CPU', act: 'Downsize to t3.large', cur: 1350, proj: 540 },
+    { id: 2, type: 'S3 Optimization', icon: Database, sev: 'med', conf: 92, save: 280, mo: 280, desc: '8TB Standard storage', act: 'Use Intelligent-Tiering', cur: 400, proj: 120 },
+    { id: 3, type: 'Unused EBS', icon: HardDrive, sev: 'high', conf: 95, save: 120, mo: 120, desc: '15 unattached volumes', act: 'Delete after backup', cur: 1200, proj: 0 },
+    { id: 4, type: 'Reserved Instances', icon: DollarSign, sev: 'med', conf: 87, save: 360, mo: 360, desc: 'RDS on on-demand', act: 'Buy 1-year RI', cur: 1040, proj: 640 }
   ];
+
+  const recs = backendRecs.length > 0 ? backendRecs : hardcodedRecs;
+
   const AccountMenu = () => (
     <div style={{ position: 'relative' }}>
       <button onClick={() => setShowAccountMenu(!showAccountMenu)} style={{
@@ -170,9 +182,9 @@ S3,us-east-1,780.00,2025-08`;
   };
 
   const processed = processData();
-  const totalCost = processed ? Object.values(processed.serviceData).reduce((a, b) => a + b, 0) : 0;
-  const totalSave = recs.reduce((s, r) => s + r.save, 0);
-  // LANDING PAGE
+  const totalCost = csvData?.total_cost || (processed ? Object.values(processed.serviceData).reduce((a, b) => a + b, 0) : 0);
+  const totalSave = csvData?.total_savings || recs.reduce((s, r) => s + r.save, 0);
+
   if (screen === 'landing') {
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #0f172a, #581c87, #0f172a)', color: 'white' }}>
@@ -188,7 +200,6 @@ S3,us-east-1,780.00,2025-08`;
             Get Started
           </button>
         </div>
-
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '4rem 2rem', textAlign: 'center' }}>
           <h1 style={{
             fontSize: '4rem', fontWeight: 'bold', marginBottom: '1.5rem',
@@ -200,7 +211,6 @@ S3,us-east-1,780.00,2025-08`;
           <p style={{ fontSize: '1.5rem', color: '#d1d5db', maxWidth: '800px', margin: '0 auto 3rem' }}>
             ML-powered analysis identifies waste and helps you save up to 40% on AWS costs
           </p>
-
           <button onClick={() => setScreen('login')} style={{
             padding: '1rem 2.5rem', fontSize: '1.25rem', background: 'linear-gradient(to right, #9333ea, #db2777)',
             border: 'none', borderRadius: '0.75rem', color: 'white', fontWeight: '600',
@@ -208,12 +218,11 @@ S3,us-east-1,780.00,2025-08`;
           }}>
             Start Optimizing Now
           </button>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
             {[
-              { icon: Zap, title: 'ML-Powered Analysis', desc: 'Advanced algorithms detect usage patterns and optimization opportunities' },
-              { icon: TrendingDown, title: 'Save Up to 40%', desc: 'Identify unused resources, right-size instances, and optimize storage' },
-              { icon: Server, title: 'Smart Recommendations', desc: 'Get actionable insights with confidence scores and projected savings' }
+              { icon: Zap, title: 'ML-Powered Analysis', desc: 'Advanced algorithms detect usage patterns' },
+              { icon: TrendingDown, title: 'Save Up to 40%', desc: 'Identify unused resources and optimize' },
+              { icon: Server, title: 'Smart Recommendations', desc: 'Actionable insights with confidence scores' }
             ].map((f, i) => (
               <div key={i} style={{
                 padding: '2rem', background: 'rgba(30,41,59,0.5)', backdropFilter: 'blur(16px)',
@@ -230,7 +239,6 @@ S3,us-east-1,780.00,2025-08`;
     );
   }
 
-  // LOGIN PAGE
   if (screen === 'login') {
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #0f172a, #581c87, #0f172a)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
@@ -240,7 +248,6 @@ S3,us-east-1,780.00,2025-08`;
             <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Welcome Back</h1>
             <p style={{ color: '#9ca3af' }}>Sign in to access your dashboard</p>
           </div>
-
           <div style={{
             background: 'rgba(30,41,59,0.5)', backdropFilter: 'blur(16px)',
             borderRadius: '1rem', padding: '2rem', border: '1px solid rgba(139,92,246,0.2)'
@@ -248,55 +255,25 @@ S3,us-east-1,780.00,2025-08`;
             <form onSubmit={handleLogin}>
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#9ca3af' }}>Email</label>
-                <input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  required
-                  style={{
-                    width: '100%', padding: '0.75rem', borderRadius: '0.5rem',
-                    background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(139,92,246,0.3)',
-                    color: 'white', fontSize: '1rem'
-                  }}
-                />
+                <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="you@company.com" required
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(139,92,246,0.3)', color: 'white', fontSize: '1rem' }} />
               </div>
-
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#9ca3af' }}>Password</label>
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  style={{
-                    width: '100%', padding: '0.75rem', borderRadius: '0.5rem',
-                    background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(139,92,246,0.3)',
-                    color: 'white', fontSize: '1rem'
-                  }}
-                />
+                <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="••••••••" required
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(139,92,246,0.3)', color: 'white', fontSize: '1rem' }} />
               </div>
-
               <button type="submit" style={{
                 width: '100%', padding: '0.75rem', background: 'linear-gradient(to right, #9333ea, #db2777)',
-                border: 'none', borderRadius: '0.5rem', color: 'white', fontWeight: '600',
-                fontSize: '1rem', cursor: 'pointer', marginBottom: '1rem'
-              }}>
-                Sign In
-              </button>
-
+                border: 'none', borderRadius: '0.5rem', color: 'white', fontWeight: '600', fontSize: '1rem', cursor: 'pointer', marginBottom: '1rem'
+              }}>Sign In</button>
               <div style={{ textAlign: 'center' }}>
-                <button type="button" onClick={() => setScreen('landing')} style={{
-                  background: 'none', border: 'none', color: '#c084fc',
-                  cursor: 'pointer', fontSize: '0.875rem'
-                }}>
+                <button type="button" onClick={() => setScreen('landing')} style={{ background: 'none', border: 'none', color: '#c084fc', cursor: 'pointer', fontSize: '0.875rem' }}>
                   ← Back to home
                 </button>
               </div>
             </form>
           </div>
-
           <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.875rem', color: '#9ca3af' }}>
             <p>Demo: Use any email/password to login</p>
           </div>
@@ -304,7 +281,7 @@ S3,us-east-1,780.00,2025-08`;
       </div>
     );
   }
-  // UPLOAD PAGE
+
   if (screen === 'upload') {
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #0f172a, #581c87, #0f172a)', color: 'white', padding: '2rem' }}>
@@ -316,56 +293,41 @@ S3,us-east-1,780.00,2025-08`;
             </div>
             <AccountMenu />
           </div>
-
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <h1 style={{
-              fontSize: '3rem', fontWeight: 'bold', marginBottom: '1rem',
-              background: 'linear-gradient(to right, #c084fc, #f9a8d4)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
-            }}>
+            <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '1rem', background: 'linear-gradient(to right, #c084fc, #f9a8d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               Upload Your Cost Data
             </h1>
             <p style={{ fontSize: '1.25rem', color: '#d1d5db' }}>Get instant ML-powered optimization insights</p>
           </div>
-
-          <div style={{
-            background: 'rgba(30,41,59,0.5)', backdropFilter: 'blur(16px)',
-            borderRadius: '1rem', padding: '3rem', border: '1px solid rgba(139,92,246,0.2)'
-          }}>
+          <div style={{ background: 'rgba(30,41,59,0.5)', backdropFilter: 'blur(16px)', borderRadius: '1rem', padding: '3rem', border: '1px solid rgba(139,92,246,0.2)' }}>
             {!analyzing ? (
               <>
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                   <Upload size={80} color="#c084fc" style={{ margin: '0 auto 1rem' }} />
                   <h2 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>Upload AWS Cost CSV</h2>
+                  <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>
+                    🤖 Using Real ML Model - Backend must be running on port 5000
+                  </p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
                   <label style={{ cursor: 'pointer' }}>
                     <input type="file" accept=".csv" onChange={handleUpload} style={{ display: 'none' }} />
-                    <div style={{
-                      background: 'linear-gradient(to right, #9333ea, #db2777)',
-                      padding: '1rem 2rem', borderRadius: '0.75rem', fontWeight: '600', fontSize: '1.125rem'
-                    }}>
+                    <div style={{ background: 'linear-gradient(to right, #9333ea, #db2777)', padding: '1rem 2rem', borderRadius: '0.75rem', fontWeight: '600', fontSize: '1.125rem' }}>
                       Select CSV File
                     </div>
                   </label>
                   <div style={{ color: '#6b7280' }}>or</div>
-                  <button onClick={generateCSV} style={{
-                    display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#c084fc',
-                    background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem'
-                  }}>
+                  <button onClick={generateCSV} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#c084fc', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem' }}>
                     <Download size={20} />Download Sample CSV
                   </button>
                 </div>
               </>
             ) : (
               <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-                <div style={{
-                  display: 'inline-block', width: '64px', height: '64px', border: '4px solid transparent',
-                  borderTopColor: '#8b5cf6', borderBottomColor: '#8b5cf6',
-                  borderRadius: '50%', animation: 'spin 1s linear infinite'
-                }} />
+                <div style={{ display: 'inline-block', width: '64px', height: '64px', border: '4px solid transparent', borderTopColor: '#8b5cf6', borderBottomColor: '#8b5cf6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginTop: '1rem' }}>Analyzing...</h3>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginTop: '1rem' }}>Running ML Analysis...</h3>
+                <p style={{ color: '#9ca3af', marginTop: '0.5rem' }}>Processing with trained model...</p>
               </div>
             )}
           </div>
@@ -373,13 +335,22 @@ S3,us-east-1,780.00,2025-08`;
       </div>
     );
   }
-
-  // DASHBOARD
   if (screen === 'dashboard') {
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #0f172a, #581c87, #0f172a)', color: 'white' }}>
         <Nav />
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 1.5rem 2rem' }}>
+          {csvData?.recommendations && (
+            <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <CheckCircle size={20} color="#34d399" />
+                <span style={{ fontWeight: '600' }}>✨ Real ML Analysis Complete!</span>
+              </div>
+              <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.25rem' }}>
+                Analyzed {csvData.total_rows} rows using trained Random Forest model
+              </p>
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
             <div style={{ background: 'linear-gradient(to bottom right, rgba(147,51,234,0.2), rgba(88,28,135,0.2))', backdropFilter: 'blur(16px)', borderRadius: '0.75rem', padding: '1.5rem', border: '1px solid rgba(139,92,246,0.3)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -403,7 +374,6 @@ S3,us-east-1,780.00,2025-08`;
               <div style={{ fontSize: '2.25rem', fontWeight: 'bold' }}>{recs.length}</div>
             </div>
           </div>
-          
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
             {[
               { title: 'View Recommendations', sc: 'recommendations', icon: Zap, color: '#fbbf24' },
@@ -423,7 +393,7 @@ S3,us-east-1,780.00,2025-08`;
       </div>
     );
   }
-  // RECOMMENDATIONS
+
   if (screen === 'recommendations') {
     if (selectedId) {
       const r = recs.find(x => x.id === selectedId);
@@ -441,26 +411,40 @@ S3,us-east-1,780.00,2025-08`;
                 <div style={{ flex: 1 }}>
                   <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>{r.type}</h1>
                   <p style={{ fontSize: '1.125rem', color: '#d1d5db', marginBottom: '1rem' }}>{r.desc}</p>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#34d399' }}>${r.save} annual</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#34d399' }}>${r.save.toFixed(2)}</div>
+                  {r.conf && (
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>
+                      {r.conf}% ML confidence
+                    </div>
+                  )}
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                <div style={{ padding: '1.5rem', background: 'rgba(51,65,85,0.3)', borderRadius: '0.75rem' }}>
-                  <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Current</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>${r.cur}/mo</div>
-                </div>
-                <div style={{ padding: '1.5rem', background: 'rgba(51,65,85,0.3)', borderRadius: '0.75rem' }}>
-                  <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Projected</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#34d399' }}>${r.proj}/mo</div>
-                </div>
-              </div>
-              <div style={{ padding: '1.5rem', background: 'rgba(16,185,129,0.1)', borderRadius: '0.75rem', border: '1px solid rgba(16,185,129,0.3)' }}>
+              <div style={{ padding: '1.5rem', background: 'rgba(16,185,129,0.1)', borderRadius: '0.75rem', border: '1px solid rgba(16,185,129,0.3)', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                   <CheckCircle size={20} color="#34d399" />
                   <h3 style={{ fontSize: '1.125rem', fontWeight: '600' }}>Recommended Action</h3>
                 </div>
-                <p>{r.act}</p>
+                <p style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>{r.act || r.action || 'Optimize these resources to reduce costs'}</p>
+                {r.count && (
+                  <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>
+                    Affects {r.count} resources with current cost of ${r.current_cost?.toFixed(2)}
+                  </p>
+                )}
               </div>
+              {(r.cur !== undefined || r.current_cost !== undefined) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                  <div style={{ padding: '1.5rem', background: 'rgba(51,65,85,0.3)', borderRadius: '0.75rem' }}>
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Current</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>${(r.cur || r.current_cost || 0).toFixed(2)}/mo</div>
+                  </div>
+                  {r.proj !== undefined && (
+                    <div style={{ padding: '1.5rem', background: 'rgba(51,65,85,0.3)', borderRadius: '0.75rem' }}>
+                      <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Projected</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#34d399' }}>${r.proj.toFixed(2)}/mo</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -484,8 +468,8 @@ S3,us-east-1,780.00,2025-08`;
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                       <h3 style={{ fontSize: '1.25rem', fontWeight: '600' }}>{r.type}</h3>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#34d399' }}>${r.save}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{r.conf}% confidence</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#34d399' }}>${r.save.toFixed(2)}</div>
+                        {r.conf && <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{r.conf}% confidence</div>}
                       </div>
                     </div>
                     <p style={{ color: '#d1d5db' }}>{r.desc}</p>
@@ -500,10 +484,9 @@ S3,us-east-1,780.00,2025-08`;
     );
   }
 
-  // ANALYSIS
   if (screen === 'analysis') {
-    const svcData = Object.entries(processed.serviceData).map(([name, cost]) => ({ name, cost }));
-    const moData = Object.entries(processed.monthlyData).sort().map(([month, cost]) => ({ month, cost }));
+    const svcData = processed ? Object.entries(processed.serviceData).map(([name, cost]) => ({ name, cost })) : [];
+    const moData = processed ? Object.entries(processed.monthlyData).sort().map(([month, cost]) => ({ month, cost })) : [];
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #0f172a, #581c87, #0f172a)', color: 'white' }}>
         <Nav />
@@ -539,7 +522,6 @@ S3,us-east-1,780.00,2025-08`;
     );
   }
 
-  // AMI
   if (screen === 'ami') {
     return (
       <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #0f172a, #581c87, #0f172a)', color: 'white' }}>
