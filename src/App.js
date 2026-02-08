@@ -22,7 +22,7 @@ const Logo = ({ size = 'default' }) => {
   const s = sizes[size];
   return (
     <span style={{ fontSize: s.fontSize, fontWeight: '800', letterSpacing: s.tracking, color: '#f0f1f5', fontFamily: "'Inter', sans-serif", lineHeight: 1 }}>
-      infra<span style={{ color: t.brand.accent }}>trim</span>
+      Infra<span style={{ color: t.brand.accent }}>Trim</span>
     </span>
   );
 };
