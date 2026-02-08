@@ -4,7 +4,7 @@ import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tool
 
 // ===== DESIGN TOKENS =====
 const t = {
-  bg: { primary: '#0b0e18', secondary: '#0e1120', card: 'rgba(12,16,30,0.8)', cardHover: 'rgba(18,22,38,0.9)', glass: 'rgba(12,16,28,0.6)', glassStrong: 'rgba(10,13,24,0.97)', surface: '#111628' },
+  bg: { primary: '#0b0e18', secondary: '#0e1120', card: 'rgba(12,16,30,0.8)', cardHover: 'rgba(18,22,38,0.9)', glass: 'rgba(12,16,28,0.6)', glassStrong: 'rgba(10,13,24,0.97)', surface: '#111628', surfaceBlue: 'rgba(15,20,42,0.95)' },
   brand: { primary: '#e2e2e2', accent: '#22c55e', accentDim: 'rgba(34,197,94,0.12)', accentBorder: 'rgba(34,197,94,0.25)', warm: '#f59e0b', warmDim: 'rgba(245,158,11,0.12)' },
   text: { primary: '#f0f1f5', secondary: '#a1a4b2', muted: '#6b6f82', dimmed: '#4a4e60', inverse: '#0b0e18' },
   border: { subtle: 'rgba(100,140,255,0.08)', medium: 'rgba(100,140,255,0.12)', strong: 'rgba(100,140,255,0.20)' },
@@ -168,7 +168,7 @@ const CloudCostOptimizer = () => {
   const Nav = () => {
     if (screen === 'landing' || screen === 'login' || screen === 'upload' || analyzing) return null;
     return (
-      <div className="nav-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: t.bg.glassStrong, borderBottom: `1px solid ${t.border.subtle}`, padding: '0.6rem 1rem', marginBottom: '1.5rem' }}>
+      <div className="nav-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(10,14,28,0.97)', borderBottom: `1px solid ${t.border.medium}`, padding: '0.6rem 1rem', marginBottom: '1.5rem', backdropFilter: 'blur(12px)' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setScreen('dashboard')}>
             <Logo size="default" />
@@ -368,11 +368,21 @@ const CloudCostOptimizer = () => {
     );
   }
 
+  // ===== INNER PAGE AZURE GLOW =====
+  const InnerAzure = () => (
+    <>
+      <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(180deg, rgba(20,50,140,0.18) 0%, rgba(15,30,100,0.08) 30%, rgba(10,20,60,0.04) 60%, transparent 100%)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse at 50% 0%, rgba(30,60,160,0.12) 0%, transparent 60%)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse at 0% 20%, rgba(25,50,150,0.10) 0%, transparent 50%), radial-gradient(ellipse at 100% 20%, rgba(25,50,150,0.10) 0%, transparent 50%)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse at 50% 100%, rgba(15,30,100,0.06) 0%, transparent 50%)', pointerEvents: 'none', zIndex: 0 }} />
+    </>
+  );
+
   // ===== DASHBOARD =====
   if (screen === 'dashboard') {
     return (
       <div style={{ minHeight: '100vh', background: t.bg.primary, color: 'white', position: 'relative' }}>
-        <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(180deg, rgba(20,50,130,0.10) 0%, transparent 35%), radial-gradient(ellipse at 0% 0%, rgba(25,50,140,0.06) 0%, transparent 45%), radial-gradient(ellipse at 100% 0%, rgba(25,50,140,0.06) 0%, transparent 45%)', pointerEvents: 'none', zIndex: 0 }} />
+        <InnerAzure />
         <Nav /><Toast />
         <div className="dash-content" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 1.5rem 2rem' }}>
           {showIdeBanner && <IdeBanner onDismiss={() => setShowIdeBanner(false)} />}
@@ -392,7 +402,7 @@ const CloudCostOptimizer = () => {
               { label: 'Potential Savings', value: `$${totalSave.toFixed(2)}`, icon: TrendingDown, color: t.brand.accent, trend: totalCost > 0 ? `-${((totalSave / totalCost) * 100).toFixed(0)}%` : null },
               { label: 'Recommendations', value: recs.length, icon: Zap, color: t.brand.warm },
             ].map((m, i) => (
-              <div key={i} onMouseEnter={() => setHoveredCard(`m-${i}`)} onMouseLeave={() => setHoveredCard(null)} style={{ background: t.bg.surface, borderRadius: t.radius.lg, padding: '1.25rem', border: `1px solid ${hoveredCard === `m-${i}` ? t.border.strong : t.border.subtle}`, transition: t.tr.normal, animation: `fadeInUp 0.3s ease-out ${i * 0.05}s both` }}>
+              <div key={i} onMouseEnter={() => setHoveredCard(`m-${i}`)} onMouseLeave={() => setHoveredCard(null)} style={{ background: t.bg.surfaceBlue, borderRadius: t.radius.lg, padding: '1.25rem', border: `1px solid ${hoveredCard === `m-${i}` ? t.border.strong : t.border.medium}`, transition: t.tr.normal, animation: `fadeInUp 0.3s ease-out ${i * 0.05}s both` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                   <span style={{ color: t.text.dimmed, fontSize: '0.8rem', fontWeight: '500' }}>{m.label}</span>
                   <m.icon size={16} color={t.text.dimmed} />
@@ -414,7 +424,7 @@ const CloudCostOptimizer = () => {
               { title: 'Cost Analysis', sub: 'Charts & breakdown', sc: 'analysis', icon: BarChart3 },
               { title: 'AMI Generator', sub: 'Optimized configs', sc: 'ami', icon: Settings }
             ].map((a, i) => (
-              <button key={i} onClick={() => setScreen(a.sc)} onMouseEnter={() => setHoveredCard(`a-${i}`)} onMouseLeave={() => setHoveredCard(null)} style={{ background: t.bg.surface, borderRadius: t.radius.lg, padding: '1.25rem', border: `1px solid ${hoveredCard === `a-${i}` ? t.border.strong : t.border.subtle}`, cursor: 'pointer', color: 'white', textAlign: 'left', transition: t.tr.normal, animation: `fadeInUp 0.3s ease-out ${0.2 + i * 0.05}s both` }}>
+              <button key={i} onClick={() => setScreen(a.sc)} onMouseEnter={() => setHoveredCard(`a-${i}`)} onMouseLeave={() => setHoveredCard(null)} style={{ background: t.bg.surfaceBlue, borderRadius: t.radius.lg, padding: '1.25rem', border: `1px solid ${hoveredCard === `a-${i}` ? t.border.strong : t.border.medium}`, cursor: 'pointer', color: 'white', textAlign: 'left', transition: t.tr.normal, animation: `fadeInUp 0.3s ease-out ${0.2 + i * 0.05}s both` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem', alignItems: 'center' }}>
                   <a.icon size={18} color={t.text.dimmed} />
                   <ArrowRight size={14} color={t.text.dimmed} style={{ transition: t.tr.fast, transform: hoveredCard === `a-${i}` ? 'translateX(3px)' : 'none', opacity: hoveredCard === `a-${i}` ? 1 : 0.4 }} />
@@ -436,11 +446,11 @@ const CloudCostOptimizer = () => {
       const Icon = r.icon;
       return (
         <div style={{ minHeight: '100vh', background: t.bg.primary, color: 'white', position: 'relative' }}>
-          <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(180deg, rgba(20,50,130,0.10) 0%, transparent 35%), radial-gradient(ellipse at 0% 0%, rgba(25,50,140,0.06) 0%, transparent 45%), radial-gradient(ellipse at 100% 0%, rgba(25,50,140,0.06) 0%, transparent 45%)', pointerEvents: 'none', zIndex: 0 }} />
+          <InnerAzure />
           <Nav />
           <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 1.5rem 2rem', animation: 'fadeIn 0.3s ease-out' }}>
             <button onClick={() => setSelectedId(null)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'none', border: 'none', color: t.text.dimmed, cursor: 'pointer', marginBottom: '1.25rem', fontSize: '0.8rem' }}>← Back</button>
-            <div style={{ background: t.bg.surface, borderRadius: t.radius.xl, padding: '2rem', border: `1px solid ${t.border.subtle}` }}>
+            <div style={{ background: t.bg.surfaceBlue, borderRadius: t.radius.xl, padding: '2rem', border: `1px solid ${t.border.medium}` }}>
               <div className="rec-detail-header" style={{ display: 'flex', gap: '1.25rem', marginBottom: '1.5rem', alignItems: 'start' }}>
                 <div style={{ padding: '0.75rem', borderRadius: t.radius.lg, background: r.sev === 'high' ? 'rgba(239,68,68,0.1)' : t.brand.warmDim, border: `1px solid ${r.sev === 'high' ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
                   <Icon size={28} color={r.sev === 'high' ? '#ef4444' : '#f59e0b'} />
@@ -484,14 +494,14 @@ const CloudCostOptimizer = () => {
     }
     return (
       <div style={{ minHeight: '100vh', background: t.bg.primary, color: 'white', position: 'relative' }}>
-        <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(180deg, rgba(20,50,130,0.10) 0%, transparent 35%), radial-gradient(ellipse at 0% 0%, rgba(25,50,140,0.06) 0%, transparent 45%), radial-gradient(ellipse at 100% 0%, rgba(25,50,140,0.06) 0%, transparent 45%)', pointerEvents: 'none', zIndex: 0 }} />
+        <InnerAzure />
         <Nav />
         <div className="page-content" style={{ maxWidth: '1000px', margin: '0 auto', padding: '0 1.5rem 2rem' }}>
           <h1 style={{ fontSize: '1.4rem', fontWeight: '700', marginBottom: '1.25rem', letterSpacing: '-0.02em', animation: 'fadeInUp 0.3s ease-out' }}>Recommendations</h1>
           {recs.map((r, i) => {
             const Icon = r.icon;
             return (
-              <button key={r.id} onClick={() => setSelectedId(r.id)} onMouseEnter={() => setHoveredCard(`r-${r.id}`)} onMouseLeave={() => setHoveredCard(null)} style={{ width: '100%', background: hoveredCard === `r-${r.id}` ? 'rgba(255,255,255,0.02)' : t.bg.surface, borderRadius: t.radius.lg, padding: '1rem 1.25rem', border: `1px solid ${hoveredCard === `r-${r.id}` ? t.border.strong : t.border.subtle}`, cursor: 'pointer', color: 'white', textAlign: 'left', marginBottom: '0.5rem', transition: t.tr.normal, animation: `fadeInUp 0.3s ease-out ${i * 0.04}s both` }}>
+              <button key={r.id} onClick={() => setSelectedId(r.id)} onMouseEnter={() => setHoveredCard(`r-${r.id}`)} onMouseLeave={() => setHoveredCard(null)} style={{ width: '100%', background: hoveredCard === `r-${r.id}` ? 'rgba(20,30,60,0.95)' : t.bg.surfaceBlue, borderRadius: t.radius.lg, padding: '1rem 1.25rem', border: `1px solid ${hoveredCard === `r-${r.id}` ? t.border.strong : t.border.medium}`, cursor: 'pointer', color: 'white', textAlign: 'left', marginBottom: '0.5rem', transition: t.tr.normal, animation: `fadeInUp 0.3s ease-out ${i * 0.04}s both` }}>
                 <div className="rec-card-inner" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                   <div style={{ padding: '0.5rem', borderRadius: t.radius.md, background: r.sev === 'high' ? 'rgba(239,68,68,0.1)' : t.brand.warmDim, flexShrink: 0 }}>
                     <Icon size={20} color={r.sev === 'high' ? '#ef4444' : '#f59e0b'} />
@@ -525,12 +535,12 @@ const CloudCostOptimizer = () => {
     const moData = processed ? Object.entries(processed.monthlyData).sort().map(([month, cost]) => ({ month, cost })) : [];
     return (
       <div style={{ minHeight: '100vh', background: t.bg.primary, color: 'white', position: 'relative' }}>
-        <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(180deg, rgba(20,50,130,0.10) 0%, transparent 35%), radial-gradient(ellipse at 0% 0%, rgba(25,50,140,0.06) 0%, transparent 45%), radial-gradient(ellipse at 100% 0%, rgba(25,50,140,0.06) 0%, transparent 45%)', pointerEvents: 'none', zIndex: 0 }} />
+        <InnerAzure />
         <Nav />
         <div className="page-content" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 1.5rem 2rem' }}>
           <h1 style={{ fontSize: '1.4rem', fontWeight: '700', marginBottom: '1.25rem', letterSpacing: '-0.02em', animation: 'fadeInUp 0.3s ease-out' }}>Cost Analysis</h1>
           <div className="chart-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1rem' }}>
-            <div style={{ background: t.bg.surface, borderRadius: t.radius.lg, padding: '1.25rem', border: `1px solid ${t.border.subtle}`, animation: 'fadeInUp 0.3s ease-out 0.05s both' }}>
+            <div style={{ background: t.bg.surfaceBlue, borderRadius: t.radius.lg, padding: '1.25rem', border: `1px solid ${t.border.medium}`, animation: 'fadeInUp 0.3s ease-out 0.05s both' }}>
               <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.75rem' }}>Cost by Service</h3>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
@@ -541,7 +551,7 @@ const CloudCostOptimizer = () => {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div style={{ background: t.bg.surface, borderRadius: t.radius.lg, padding: '1.25rem', border: `1px solid ${t.border.subtle}`, animation: 'fadeInUp 0.3s ease-out 0.1s both' }}>
+            <div style={{ background: t.bg.surfaceBlue, borderRadius: t.radius.lg, padding: '1.25rem', border: `1px solid ${t.border.medium}`, animation: 'fadeInUp 0.3s ease-out 0.1s both' }}>
               <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.75rem' }}>Monthly Trend</h3>
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={moData}>
@@ -569,28 +579,33 @@ const CloudCostOptimizer = () => {
   if (screen === 'ami') {
     return (
       <div style={{ minHeight: '100vh', background: t.bg.primary, color: 'white', position: 'relative' }}>
-        <div style={{ position: 'fixed', inset: 0, background: 'linear-gradient(180deg, rgba(20,50,130,0.10) 0%, transparent 35%), radial-gradient(ellipse at 0% 0%, rgba(25,50,140,0.06) 0%, transparent 45%), radial-gradient(ellipse at 100% 0%, rgba(25,50,140,0.06) 0%, transparent 45%)', pointerEvents: 'none', zIndex: 0 }} />
+        <InnerAzure />
         <Nav /><Toast />
-        <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto', padding: '0 1.5rem 2rem' }}>
+        <div className="page-content" style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 1.5rem 2rem' }}>
           <h1 style={{ fontSize: '1.4rem', fontWeight: '700', marginBottom: '1.25rem', letterSpacing: '-0.02em', animation: 'fadeInUp 0.3s ease-out' }}>AMI Configuration</h1>
-          <div style={{ background: t.bg.surface, borderRadius: t.radius.xl, padding: '1.75rem', border: `1px solid ${t.border.subtle}`, animation: 'fadeInUp 0.3s ease-out 0.05s both' }}>
-            <div className="ami-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
+          <div style={{ background: t.bg.surfaceBlue, borderRadius: t.radius.xl, padding: '2.25rem', border: `1px solid ${t.border.medium}`, animation: 'fadeInUp 0.3s ease-out 0.05s both' }}>
+            <div className="ami-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2.5rem' }}>
               <div>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.75rem' }}>Recommended Specs</h3>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: '600', marginBottom: '1rem' }}>Recommended Specs</h3>
                 {[['Instance Type', 't3.large', Cpu], ['CPU', '2 vCPUs', Activity], ['Memory', '8 GB', Layers], ['Storage', 'gp3 100GB', HardDrive], ['Network', '5 Gbps', Zap], ['Est. Cost', '$180/mo', DollarSign]].map(([k, v, Icon], i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 0', borderBottom: i < 5 ? `1px solid ${t.border.subtle}` : 'none', animation: `fadeInUp 0.3s ease-out ${i * 0.04}s both` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      <Icon size={13} color={t.text.dimmed} />
-                      <span style={{ color: t.text.muted, fontSize: '0.8rem' }}>{k}</span>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 0.5rem', borderBottom: i < 5 ? `1px solid ${t.border.subtle}` : 'none', animation: `fadeInUp 0.3s ease-out ${i * 0.04}s both`, borderRadius: t.radius.sm }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: t.radius.sm, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon size={13} color="#60a5fa" />
+                      </div>
+                      <span style={{ color: t.text.secondary, fontSize: '0.85rem' }}>{k}</span>
                     </div>
-                    <span style={{ fontWeight: '600', color: k === 'Est. Cost' ? t.brand.accent : t.text.primary, fontSize: '0.85rem' }}>{v}</span>
+                    <span style={{ fontWeight: '600', color: k === 'Est. Cost' ? t.brand.accent : t.text.primary, fontSize: '0.9rem' }}>{v}</span>
                   </div>
                 ))}
               </div>
               <div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: t.radius.lg, padding: '1.25rem', marginBottom: '1rem', border: `1px solid ${t.border.subtle}`, animation: 'fadeInUp 0.3s ease-out 0.25s both' }}>
-                  <h4 style={{ fontWeight: '600', marginBottom: '0.35rem', fontSize: '0.85rem' }}>Model Reasoning</h4>
-                  <p style={{ color: t.text.dimmed, fontSize: '0.8rem', lineHeight: 1.55 }}>Based on observed CPU utilization (40-60%), memory-light workloads, and cost-optimization priority, t3.large provides the best price-performance ratio.</p>
+                <div style={{ background: 'rgba(59,130,246,0.04)', borderRadius: t.radius.lg, padding: '1.5rem', marginBottom: '1.25rem', border: `1px solid rgba(59,130,246,0.12)`, animation: 'fadeInUp 0.3s ease-out 0.25s both' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Cpu size={14} color="#60a5fa" />
+                    <h4 style={{ fontWeight: '600', fontSize: '0.9rem' }}>Model Reasoning</h4>
+                  </div>
+                  <p style={{ color: t.text.muted, fontSize: '0.85rem', lineHeight: 1.65 }}>Based on observed CPU utilization (40-60%), memory-light workloads, and cost-optimization priority, t3.large provides the best price-performance ratio.</p>
                 </div>
                 <button onClick={generateTerraform} style={{ width: '100%', background: t.brand.accent, padding: '0.7rem', borderRadius: t.radius.md, fontWeight: '600', border: 'none', color: '#052e16', cursor: 'pointer', fontSize: '0.85rem', boxShadow: t.shadow.green, transition: t.tr.fast, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', animation: 'fadeInUp 0.3s ease-out 0.3s both' }}>
                   <Terminal size={14} />Export Terraform
