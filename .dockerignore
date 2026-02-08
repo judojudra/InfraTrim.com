@@ -1,0 +1,14 @@
+node_modules
+build
+venv
+__pycache__
+*.pyc
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+README.md
+aws_usage_data.csv
+train_model.py
+generate_data.py

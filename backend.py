@@ -4,9 +4,17 @@ import pandas as pd
 import numpy as np
 import joblib
 import json
+import os
 
 app = Flask(__name__)
-CORS(app)  # Allow React to connect
+CORS(app, origins=os.environ.get('CORS_ORIGINS', '*').split(','))
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    return response
 
 # Load trained model and encoders
 print("🔧 Loading ML model...")
@@ -192,7 +200,214 @@ def analyze_costs():
         print(f"❌ Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/generate-terraform', methods=['POST'])
+def generate_terraform():
+    try:
+        data = request.json
+        recommendations = data.get('recommendations', [])
+        
+        # Start building Terraform script
+        terraform_script = """# Auto-generated Terraform script for AWS cost optimization
+# Generated based on ML analysis
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"  # Update to your region
+}
+
+"""
+        
+        # Process recommendations and generate appropriate Terraform
+        for rec in recommendations:
+            rec_type = rec.get('type', '')
+            
+            if 'Right-Size' in rec_type or 'Downsize' in rec_type:
+                terraform_script += f"""
+# {rec_type}: {rec.get('desc', '')}
+# Potential savings: ${rec.get('save', 0):.2f}/month
+
+resource "aws_instance" "optimized_instance_{rec.get('id', 1)}" {{
+  ami           = "ami-0c55b159cbfafe1f0"  # Update with your AMI
+  instance_type = "t3.medium"  # Downsized from larger instance
+  
+  tags = {{
+    Name        = "optimized-instance"
+    CostCenter  = "optimized"
+    Savings     = "${rec.get('save', 0):.2f}"
+  }}
+}}
+"""
+            
+            elif 'Reserved Instance' in rec_type:
+                terraform_script += f"""
+# {rec_type}: {rec.get('desc', '')}
+# Potential savings: ${rec.get('save', 0):.2f}/month
+
+# Note: Reserved Instances should be purchased through AWS Console
+# This creates the instance that should be covered by RI
+resource "aws_instance" "reserved_instance_candidate_{rec.get('id', 1)}" {{
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "t3.large"
+  
+  tags = {{
+    Name             = "ri-candidate"
+    ReservedInstance = "true"
+    Savings          = "${rec.get('save', 0):.2f}"
+  }}
+}}
+"""
+            
+            elif 'S3' in rec_type and 'Glacier' in rec_type:
+                terraform_script += f"""
+# {rec_type}: {rec.get('desc', '')}
+# Potential savings: ${rec.get('save', 0):.2f}/month
+
+resource "aws_s3_bucket" "optimized_bucket_{rec.get('id', 1)}" {{
+  bucket = "optimized-storage-bucket-{rec.get('id', 1)}"
+}}
+
+resource "aws_s3_bucket_lifecycle_configuration" "glacier_transition_{rec.get('id', 1)}" {{
+  bucket = aws_s3_bucket.optimized_bucket_{rec.get('id', 1)}.id
+
+  rule {{
+    id     = "move-to-glacier"
+    status = "Enabled"
+
+    transition {{
+      days          = 30
+      storage_class = "GLACIER"
+    }}
+
+    transition {{
+      days          = 90
+      storage_class = "DEEP_ARCHIVE"
+    }}
+  }}
+}}
+"""
+            
+            elif 'Intelligent' in rec_type and 'Tiering' in rec_type:
+                terraform_script += f"""
+# {rec_type}: {rec.get('desc', '')}
+# Potential savings: ${rec.get('save', 0):.2f}/month
+
+resource "aws_s3_bucket" "intelligent_tiering_bucket_{rec.get('id', 1)}" {{
+  bucket = "intelligent-tiering-bucket-{rec.get('id', 1)}"
+}}
+
+resource "aws_s3_bucket_intelligent_tiering_configuration" "entire_bucket_{rec.get('id', 1)}" {{
+  bucket = aws_s3_bucket.intelligent_tiering_bucket_{rec.get('id', 1)}.id
+  name   = "EntireBucket"
+
+  tiering {{
+    access_tier = "DEEP_ARCHIVE_ACCESS"
+    days        = 180
+  }}
+
+  tiering {{
+    access_tier = "ARCHIVE_ACCESS"
+    days        = 90
+  }}
+}}
+"""
+            
+            elif 'EBS' in rec_type or 'gp3' in rec_type:
+                terraform_script += f"""
+# {rec_type}: {rec.get('desc', '')}
+# Potential savings: ${rec.get('save', 0):.2f}/month
+
+resource "aws_ebs_volume" "optimized_volume_{rec.get('id', 1)}" {{
+  availability_zone = "us-east-1a"
+  size              = 100
+  type              = "gp3"  # Optimized from gp2 or io1/io2
+  
+  tags = {{
+    Name    = "optimized-volume"
+    Savings = "${rec.get('save', 0):.2f}"
+  }}
+}}
+"""
+            
+            elif 'Lambda' in rec_type:
+                terraform_script += f"""
+# {rec_type}: {rec.get('desc', '')}
+# Potential savings: ${rec.get('save', 0):.2f}/month
+
+resource "aws_lambda_function" "optimized_function_{rec.get('id', 1)}" {{
+  filename      = "lambda_function.zip"
+  function_name = "optimized-lambda-{rec.get('id', 1)}"
+  role          = aws_iam_role.lambda_role_{rec.get('id', 1)}.arn
+  handler       = "index.handler"
+  runtime       = "python3.11"
+  
+  memory_size = 512  # Optimized from higher value
+  timeout     = 30
+  
+  tags = {{
+    Optimized = "true"
+    Savings   = "${rec.get('save', 0):.2f}"
+  }}
+}}
+
+resource "aws_iam_role" "lambda_role_{rec.get('id', 1)}" {{
+  name = "optimized-lambda-role-{rec.get('id', 1)}"
+
+  assume_role_policy = jsonencode({{
+    Version = "2012-10-17"
+    Statement = [{{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {{
+        Service = "lambda.amazonaws.com"
+      }}
+    }}]
+  }})
+}}
+"""
+            
+            elif 'Terminate' in rec_type or 'Unused' in rec_type or 'Delete' in rec_type:
+                terraform_script += f"""
+# {rec_type}: {rec.get('desc', '')}
+# Potential savings: ${rec.get('save', 0):.2f}/month
+# Action: These resources should be terminated/deleted manually after verification
+# Resource count: {rec.get('count', 0)}
+
+"""
+        
+        # Add summary comment
+        total_savings = sum([rec.get('save', 0) for rec in recommendations])
+        terraform_script += f"""
+# ==========================================
+# OPTIMIZATION SUMMARY
+# ==========================================
+# Total monthly savings: ${total_savings:.2f}
+# Total annual savings: ${total_savings * 12:.2f}
+# Number of optimizations: {len(recommendations)}
+# ==========================================
+"""
+        
+        print(f"✅ Terraform generated: ${total_savings:.2f} savings, {len(recommendations)} optimizations")
+        
+        return jsonify({
+            'terraform_script': terraform_script,
+            'total_savings': round(total_savings, 2),
+            'optimization_count': len(recommendations)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error generating Terraform: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
-    print("🚀 Starting Flask backend...")
-    print("📡 Backend running on http://localhost:5000")
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5001))
+    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    print(f"🚀 Starting Flask backend on port {port}...")
+    app.run(debug=debug, host='0.0.0.0', port=port)
